@@ -1528,36 +1528,101 @@ function showAlert(msg, type) {
 
 /* ═══════════════════════════════════════════════════════════
    CAMERA SCANNER
+   Uses native BarcodeDetector API when available (Chrome, Edge,
+   Android) for best performance, with ZXing as fallback.
    ═══════════════════════════════════════════════════════════ */
+let barcodeDetector = null;
+
+// Check for native BarcodeDetector support
+if ('BarcodeDetector' in window) {
+  BarcodeDetector.getSupportedFormats().then(formats => {
+    if (formats.length > 0) {
+      barcodeDetector = new BarcodeDetector({ formats });
+    }
+  }).catch(() => {});
+}
+
 async function toggleCamera() {
   if (cameraActive) { stopCamera(); return; }
   const video = document.getElementById('cameraPreview');
   const btn = document.getElementById('cameraBtn');
   const vf = document.getElementById('cameraViewfinder');
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
     video.srcObject = stream;
     video.style.display = 'block';
     vf.classList.add('active');
     btn.innerHTML = '<span>⏹</span> Stop Camera';
     cameraActive = true;
-    scanLoop();
+
+    // Wait for video to be ready
+    await new Promise(resolve => {
+      video.onloadedmetadata = () => { video.play(); resolve(); };
+    });
+
+    // Try native BarcodeDetector first (faster, more reliable)
+    if (barcodeDetector) {
+      scanWithNative();
+    } else if (window.ZXing) {
+      // Use ZXing continuous video decoding (not frame-capture)
+      scanWithZXing();
+    } else {
+      showAlert('No barcode scanner available.', 'error');
+      stopCamera();
+    }
   } catch {
     showAlert('Camera access denied. Use manual entry.', 'error');
   }
 }
 
-function stopCamera() {
+// Native BarcodeDetector — scans directly from video frames
+async function scanWithNative() {
+  if (!cameraActive || !barcodeDetector) return;
   const video = document.getElementById('cameraPreview');
-  if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-  video.style.display = 'none';
-  document.getElementById('cameraViewfinder').classList.remove('active');
-  document.getElementById('cameraBtn').innerHTML = '<span>📷</span> Start Camera Scanner';
-  cameraActive = false;
-  zxingReader = null;
+  try {
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      const barcodes = await barcodeDetector.detect(video);
+      if (barcodes.length > 0) {
+        const code = barcodes[0].rawValue;
+        if (code) {
+          document.getElementById('scanInput').value = code;
+          stopCamera();
+          toast('Barcode scanned!', '📷', 3000);
+          await lookupVisitor();
+          return;
+        }
+      }
+    }
+  } catch {
+    // Detection failed for this frame, continue
+  }
+  if (cameraActive) requestAnimationFrame(scanWithNative);
 }
 
-async function scanLoop() {
+// ZXing fallback — decode one frame at a time from the video element
+async function scanWithZXing() {
+  if (!cameraActive) return;
+  const video = document.getElementById('cameraPreview');
+  try {
+    if (!zxingReader) zxingReader = new ZXing.BrowserMultiFormatReader();
+    const result = await zxingReader.decodeOnceFromVideoElement(video);
+    if (result && result.getText()) {
+      document.getElementById('scanInput').value = result.getText();
+      stopCamera();
+      toast('Barcode scanned!', '📷', 3000);
+      lookupVisitor();
+      return;
+    }
+  } catch {
+    // NotFoundException or timeout — try next frame
+  }
+  if (cameraActive) setTimeout(scanWithZXing, 300);
+}
+
+// Last-resort fallback — canvas frame capture with dataURL
+async function scanWithFrameCapture() {
   if (!cameraActive) return;
   const video = document.getElementById('cameraPreview');
   const canvas = document.getElementById('cameraCanvas');
@@ -1570,8 +1635,8 @@ async function scanLoop() {
     try {
       if (window.ZXing) {
         if (!zxingReader) zxingReader = new ZXing.BrowserMultiFormatReader();
-        const imgData = canvas.toDataURL('image/png');
-        const result = await zxingReader.decodeFromImageUrl(imgData);
+        const dataUrl = canvas.toDataURL('image/png');
+        const result = await zxingReader.decodeFromImageUrl(dataUrl);
         if (result && result.getText()) {
           document.getElementById('scanInput').value = result.getText();
           stopCamera();
@@ -1581,10 +1646,21 @@ async function scanLoop() {
         }
       }
     } catch {
-      // NotFoundException when no barcode in frame — ignore
+      // No barcode found in frame
     }
   }
-  if (cameraActive) setTimeout(scanLoop, 200);
+  if (cameraActive) setTimeout(scanWithFrameCapture, 300);
+}
+
+function stopCamera() {
+  cameraActive = false;
+  zxingReader = null;
+  const video = document.getElementById('cameraPreview');
+  if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+  video.srcObject = null;
+  video.style.display = 'none';
+  document.getElementById('cameraViewfinder').classList.remove('active');
+  document.getElementById('cameraBtn').innerHTML = '<span>📷</span> Start Camera Scanner';
 }
 
 /* ═══════════════════════════════════════════════════════════
