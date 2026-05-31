@@ -1,7 +1,7 @@
 // api/visitors.js — List all active visitors (for dashboard)
 
-const KV_URL   = process.env.KV_REST_API_URL;
-const KV_TOKEN = process.env.KV_REST_API_TOKEN;
+const KV_URL    = process.env.KV_REST_API_URL;
+const KV_TOKEN  = process.env.KV_REST_API_TOKEN;
 const DASH_PASS = process.env.DASHBOARD_PASSWORD || 'security123';
 
 async function kvGet(key) {
@@ -13,22 +13,25 @@ async function kvGet(key) {
   try { return JSON.parse(json.result); } catch { return json.result; }
 }
 
-async function kvLrange(key, start, end) {
-  const res = await fetch(`${KV_URL}/lrange/${encodeURIComponent(key)}/${start}/${end}`, {
-    headers: { Authorization: `Bearer ${KV_TOKEN}` },
+async function kvLrange(key) {
+  // Upstash REST: POST /pipeline with LRANGE command
+  const res = await fetch(`${KV_URL}/pipeline`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify([['LRANGE', key, '0', '200']]),
   });
   const json = await res.json();
-  return json.result || [];
+  // pipeline returns array of results
+  return json?.[0]?.result || [];
 }
 
 export default async function handler(req, res) {
   const auth = req.headers['x-dashboard-key'];
   if (auth !== DASH_PASS) return res.status(401).json({ error: 'Unauthorized' });
 
-  // Get list of visitor IDs registered today
-  const today   = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const today   = new Date().toISOString().slice(0, 10);
   const listKey = `visitors:${today}`;
-  const ids     = await kvLrange(listKey, 0, 100);
+  const ids     = await kvLrange(listKey);
 
   const visitors = [];
   for (const id of ids) {

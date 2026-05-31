@@ -25,9 +25,23 @@ async function kvGet(key) {
   try { return JSON.parse(json.result); } catch { return json.result; }
 }
 async function kvDel(key) {
-  await fetch(`${KV_URL}/del/${encodeURIComponent(key)}`, {
+  await fetch(`${KV_URL}/pipeline`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${KV_TOKEN}` },
+    headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify([['DEL', key]]),
+  });
+}
+async function addToDaily(visitorId) {
+  const today   = new Date().toISOString().slice(0, 10);
+  const listKey = `visitors:${today}`;
+  // RPUSH + EXPIRE in one pipeline call
+  await fetch(`${KV_URL}/pipeline`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify([
+      ['RPUSH', listKey, visitorId],
+      ['EXPIRE', listKey, '172800'],
+    ]),
   });
 }
 
@@ -93,18 +107,17 @@ export default async function handler(req, res) {
       const record = {
         ...visitor,
         visitorId,
-        status: 'pending',  // pending → checked-in → checked-out
+        status: 'pending',
         issuedAt: now,
         expiry,
         chatId: targetId,
         hours,
       };
 
-      // Store by visitorId (for dashboard + scanner)
-      await addToDaily(visitorId);
+      // Store visitor record + add to daily list
       await kvSet(`visitor:${visitorId}`, record, hours * 3600 + 300);
-      // Store mapping chatId → visitorId
       await kvSet(`chat:${targetId}`, visitorId, hours * 3600 + 300);
+      await addToDaily(visitorId);
       await kvDel(`pending:${targetId}`);
       await kvSet(`state:${targetId}`, 'approved');
 
@@ -169,7 +182,7 @@ To register your visit, please:
 
   // Step 1 — visitor sends selfie
   if (isPhoto && state === 'awaiting_photo') {
-    const fileId  = msg.photo[msg.photo.length - 1].file_id;
+    const fileId = msg.photo[msg.photo.length - 1].file_id;
     await kvSet(`photo:${chatId}`, fileId, 3600);
     await kvSet(`state:${chatId}`, 'awaiting_details');
     await tg('sendMessage', {
@@ -280,20 +293,4 @@ Reply:
   }
 
   return res.status(200).send('OK');
-}
-
-// ── Helper: push visitorId to daily list ──────────────────────────────────────
-async function addToDaily(visitorId) {
-  const today   = new Date().toISOString().slice(0, 10);
-  const listKey = `visitors:${today}`;
-  await fetch(`${KV_URL}/rpush/${encodeURIComponent(listKey)}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify([visitorId]),
-  });
-  // Set list expiry to 48h
-  await fetch(`${KV_URL}/expire/${encodeURIComponent(listKey)}/172800`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${KV_TOKEN}` },
-  });
 }
