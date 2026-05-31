@@ -1,11 +1,11 @@
 {
   "name": "Visitor Pass",
   "short_name": "VisitorID",
-  "description": "Secure Visitor Management System",
+  "description": "Secure Visitor Management System — Digital Pass",
   "start_url": "/id",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#0a0e1a",
+  "theme_color": "#0a0e1a",
   "orientation": "portrait",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },

@@ -3,147 +3,753 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0f172a">
+<meta name="theme-color" content="#0a0e1a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="Digital Visitor Pass — Secure Entry System">
 <link rel="manifest" href="/manifest.json">
 <title>Visitor Pass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; background: #0f172a; font-family: 'Google Sans', Roboto, sans-serif; color: #e2e8f0; }
-  body { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 20px 16px 40px; min-height: 100dvh; }
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --bg-deep: #0a0e1a;
+  --bg-surface: #1c2340;
+  --glass-bg: rgba(22, 27, 46, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --accent: #3b82f6;
+  --accent-light: #60a5fa;
+  --accent-glow: rgba(59, 130, 246, 0.3);
+  --success: #22c55e;
+  --success-soft: rgba(34, 197, 94, 0.12);
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --text-primary: #eef2ff;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-muted: #475569;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-  .org-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
-  .org-logo { width: 40px; height: 40px; background: #3b82f6; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
-  .org-name { font-size: 15px; font-weight: 700; color: #e2e8f0; }
-  .org-sub { font-size: 11px; color: #64748b; }
+/* ═══════════════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════════════ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html {
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body {
+  min-height: 100dvh;
+  background: var(--bg-deep);
+  font-family: var(--font-body);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 24px 16px 48px;
+  position: relative;
+  overflow-x: hidden;
+}
 
-  .card { width: 100%; max-width: 360px; background: #1e293b; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5); border: 1px solid #334155; }
+/* ═══════════════════════════════════════════════════════════
+   ANIMATED AURORA BACKGROUND
+   ═══════════════════════════════════════════════════════════ */
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
 
-  .card-header { background: linear-gradient(135deg, #1d4ed8, #3b82f6); padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
-  .card-header-title { font-size: 13px; font-weight: 700; color: #bfdbfe; text-transform: uppercase; letter-spacing: 1.5px; }
-  .status-badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .status-pending   { background: #fbbf24; color: #1c1917; }
-  .status-checked-in  { background: #22c55e; color: #fff; }
-  .status-checked-out { background: #6b7280; color: #fff; }
-  .status-expired   { background: #ef4444; color: #fff; }
+.aurora-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.3;
+}
 
-  .card-body { padding: 20px; }
-  .visitor-photo-wrap { display: flex; justify-content: center; margin-bottom: 16px; }
-  .visitor-photo { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 3px solid #3b82f6; background: #334155; display: flex; align-items: center; justify-content: center; font-size: 36px; color: #94a3b8; overflow: hidden; }
-  .visitor-photo img { width: 100%; height: 100%; object-fit: cover; }
+.aurora-orb:nth-child(1) {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, #3b82f6, transparent 70%);
+  top: -20%; left: -15%;
+  animation: auroraA 18s ease-in-out infinite alternate;
+}
+.aurora-orb:nth-child(2) {
+  width: 350px; height: 350px;
+  background: radial-gradient(circle, #8b5cf6, transparent 70%);
+  bottom: -15%; right: -10%;
+  animation: auroraB 22s ease-in-out infinite alternate;
+}
+.aurora-orb:nth-child(3) {
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, #06b6d4, transparent 70%);
+  top: 40%; left: 60%;
+  animation: auroraC 20s ease-in-out infinite alternate;
+}
 
-  .visitor-name { text-align: center; font-size: 20px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
-  .visitor-id-text { text-align: center; font-size: 12px; color: #64748b; font-family: monospace; margin-bottom: 16px; letter-spacing: 1px; }
+@keyframes auroraA {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(40px, 30px) scale(1.15); }
+}
+@keyframes auroraB {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-30px, -40px) scale(1.1); }
+}
+@keyframes auroraC {
+  0% { transform: translate(0, 0) scale(0.9); }
+  100% { transform: translate(-20px, 20px) scale(1.05); }
+}
 
-  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-  .info-item { background: #0f172a; border-radius: 10px; padding: 10px 12px; }
-  .info-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 3px; }
-  .info-value { font-size: 13px; color: #e2e8f0; font-weight: 600; word-break: break-word; }
+/* ═══════════════════════════════════════════════════════════
+   ORG HEADER
+   ═══════════════════════════════════════════════════════════ */
+.org-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  z-index: 1;
+  animation: fadeDown 0.6s var(--ease-out);
+}
 
-  .barcode-section { background: #fff; border-radius: 12px; padding: 12px 16px 8px; margin-bottom: 4px; }
-  .barcode-canvas { width: 100%; height: 60px; }
-  .barcode-text { text-align: center; font-size: 11px; color: #475569; font-family: monospace; margin-top: 4px; letter-spacing: 2px; }
+.org-logo {
+  width: 42px; height: 42px;
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+}
 
-  .validity { text-align: center; font-size: 11px; color: #64748b; margin-top: 12px; }
-  .validity span { color: #f59e0b; font-weight: 600; }
+.org-name { font-size: 16px; font-weight: 700; }
+.org-sub { font-size: 11px; color: var(--text-tertiary); font-weight: 500; }
 
-  .expired-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 100; flex-direction: column; gap: 12px; padding: 24px; text-align: center; }
-  .expired-overlay h2 { font-size: 22px; font-weight: 700; color: #ef4444; }
-  .expired-overlay p { font-size: 14px; color: #94a3b8; }
+@keyframes fadeDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-  .timer { text-align: center; font-size: 12px; color: #475569; margin-top: 8px; }
-  .timer span { color: #38bdf8; font-weight: 700; font-family: monospace; }
+/* ═══════════════════════════════════════════════════════════
+   PASS CARD
+   ═══════════════════════════════════════════════════════════ */
+.pass-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.03) inset;
+  z-index: 1;
+  animation: cardEntrance 0.7s var(--ease-out) 0.1s both;
+  position: relative;
+}
+
+/* Holographic shimmer overlay */
+.pass-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    125deg,
+    transparent 0%,
+    rgba(255,255,255,0.03) 25%,
+    transparent 35%,
+    rgba(59, 130, 246, 0.04) 50%,
+    transparent 65%,
+    rgba(139, 92, 246, 0.03) 80%,
+    transparent 100%
+  );
+  z-index: 10;
+  pointer-events: none;
+  animation: holoShimmer 6s ease-in-out infinite;
+}
+
+@keyframes holoShimmer {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+@keyframes cardEntrance {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Card Header ── */
+.card-header {
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6 50%, #60a5fa);
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+.card-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+}
+
+.card-header-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(191, 219, 254, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.4s var(--ease-out);
+}
+
+.status-pending   { background: var(--warning); color: #1c1917; }
+.status-checked-in  { background: var(--success); color: #fff; }
+.status-checked-out { background: #6b7280; color: #fff; }
+.status-expired   { background: var(--danger); color: #fff; }
+
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: dotPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.5); }
+}
+
+/* ── Card Body ── */
+.card-body {
+  padding: 24px 20px 20px;
+}
+
+/* ── Photo ── */
+.photo-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.photo-ring {
+  position: relative;
+  width: 96px; height: 96px;
+}
+
+.photo-ring svg {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  transform: rotate(-90deg);
+}
+
+.photo-ring-track {
+  fill: none;
+  stroke: rgba(255,255,255,0.05);
+  stroke-width: 2;
+}
+
+.photo-ring-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 314;
+  stroke-dashoffset: 314;
+  transition: stroke-dashoffset 1s var(--ease-out);
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+
+.visitor-photo {
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  color: var(--text-muted);
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.08);
+}
+
+.visitor-photo img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── Name & ID ── */
+.visitor-name {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 2px;
+  background: linear-gradient(135deg, var(--text-primary), var(--accent-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.visitor-id-text {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  letter-spacing: 1.5px;
+  margin-bottom: 20px;
+}
+
+/* ── Info Grid ── */
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.info-item {
+  background: rgba(15, 20, 34, 0.5);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,0.03);
+  transition: border-color 0.3s;
+}
+
+.info-item.full { grid-column: 1 / -1; }
+
+.info-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.info-value {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 600;
+  word-break: break-word;
+}
+
+/* ── Barcode Section ── */
+.barcode-section {
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  padding: 14px 16px 10px;
+  margin-bottom: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Holographic overlay on barcode */
+.barcode-section::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(59, 130, 246, 0.06) 45%,
+    rgba(139, 92, 246, 0.06) 55%,
+    transparent 70%
+  );
+  animation: barcodeShimmer 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes barcodeShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.barcode-canvas { width: 100%; height: 60px; }
+
+.barcode-text {
+  text-align: center;
+  font-size: 12px;
+  color: #334155;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  margin-top: 6px;
+}
+
+/* ── Validity ── */
+.validity-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+.validity-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+}
+
+.validity-row span { color: var(--warning); font-weight: 600; }
+
+/* ── Progress Bar ── */
+.progress-bar-wrap {
+  width: 100%;
+  height: 4px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  border-radius: 2px;
+  transition: width 1s var(--ease-out);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* ── Countdown Timer ── */
+.timer-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.timer-ring {
+  position: relative;
+  width: 56px; height: 56px;
+  flex-shrink: 0;
+}
+
+.timer-ring svg {
+  width: 56px; height: 56px;
+  transform: rotate(-90deg);
+}
+
+.timer-ring-track {
+  fill: none;
+  stroke: rgba(255,255,255,0.04);
+  stroke-width: 3;
+}
+
+.timer-ring-fill {
+  fill: none;
+  stroke: var(--accent-light);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 157;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 1s linear, stroke 0.5s;
+  filter: drop-shadow(0 0 4px var(--accent-glow));
+}
+
+.timer-ring-fill.warning { stroke: var(--warning); filter: drop-shadow(0 0 4px rgba(245,158,11,0.3)); }
+.timer-ring-fill.danger  { stroke: var(--danger); filter: drop-shadow(0 0 4px rgba(239,68,68,0.3)); }
+
+.timer-ring .timer-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.timer-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.timer-label .timer-text {
+  display: block;
+  font-size: 16px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent-light);
+  margin-top: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EXPIRED OVERLAY
+   ═══════════════════════════════════════════════════════════ */
+.expired-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 14, 26, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  animation: fadeIn 0.5s ease;
+}
+
+.expired-overlay .expired-icon {
+  font-size: 56px;
+  margin-bottom: 8px;
+  animation: expiredPulse 2s ease-in-out infinite;
+}
+
+@keyframes expiredPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.expired-overlay h2 {
+  font-size: 24px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--danger), #f87171);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.expired-overlay p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  max-width: 280px;
+}
+
+.expired-overlay .expired-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   REDUCED MOTION
+   ═══════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
 </style>
 </head>
 <body>
 
+<!-- ── Aurora Background ── -->
+<div class="aurora" aria-hidden="true">
+  <div class="aurora-orb"></div>
+  <div class="aurora-orb"></div>
+  <div class="aurora-orb"></div>
+</div>
+
+<!-- ── Org Header ── -->
 <div class="org-header">
-  <div class="org-logo">🏢</div>
+  <div class="org-logo">🛡️</div>
   <div>
     <div class="org-name">Visitor Management</div>
     <div class="org-sub">Secure Entry System</div>
   </div>
 </div>
 
-<div class="card">
+<!-- ── Pass Card ── -->
+<div class="pass-card" id="passCard">
   <div class="card-header">
     <div class="card-header-title">Visitor Pass</div>
-    <div class="status-badge status-pending" id="statusBadge">Pending</div>
-  </div>
-  <div class="card-body">
-    <div class="visitor-photo-wrap">
-      <div class="visitor-photo" id="photoWrap">👤</div>
+    <div class="status-badge status-pending" id="statusBadge">
+      <span class="status-dot"></span>
+      Pending
     </div>
+  </div>
+
+  <div class="card-body">
+    <!-- Photo with ring -->
+    <div class="photo-wrap">
+      <div class="photo-ring">
+        <svg viewBox="0 0 104 104">
+          <circle class="photo-ring-track" cx="52" cy="52" r="50"></circle>
+          <circle class="photo-ring-fill" id="photoRingFill" cx="52" cy="52" r="50"></circle>
+        </svg>
+        <div class="visitor-photo" id="photoWrap">👤</div>
+      </div>
+    </div>
+
+    <!-- Name & ID -->
     <div class="visitor-name" id="visitorName">—</div>
     <div class="visitor-id-text" id="visitorIdText">—</div>
+
+    <!-- Info Grid -->
     <div class="info-grid">
-      <div class="info-item"><div class="info-label">Phone</div><div class="info-value" id="infoPhone">—</div></div>
-      <div class="info-item"><div class="info-label">Purpose</div><div class="info-value" id="infoPurpose">—</div></div>
-      <div class="info-item" style="grid-column:1/-1"><div class="info-label">Visiting</div><div class="info-value" id="infoVisiting">—</div></div>
+      <div class="info-item">
+        <div class="info-label">Phone</div>
+        <div class="info-value" id="infoPhone">—</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Purpose</div>
+        <div class="info-value" id="infoPurpose">—</div>
+      </div>
+      <div class="info-item full">
+        <div class="info-label">Visiting</div>
+        <div class="info-value" id="infoVisiting">—</div>
+      </div>
     </div>
+
+    <!-- Barcode -->
     <div class="barcode-section">
       <canvas id="barcodeCanvas" class="barcode-canvas"></canvas>
       <div class="barcode-text" id="barcodeText">—</div>
     </div>
-    <div class="validity" id="validity"></div>
-    <div class="timer" id="timerWrap">Expires in <span id="timerText">—</span></div>
+
+    <!-- Validity -->
+    <div class="validity-section">
+      <div class="validity-row" id="validityRow">
+        <span>—</span>
+        <span>—</span>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progressBar" style="width:100%"></div>
+      </div>
+      <div class="timer-section">
+        <div class="timer-ring">
+          <svg viewBox="0 0 56 56">
+            <circle class="timer-ring-track" cx="28" cy="28" r="25"></circle>
+            <circle class="timer-ring-fill" id="timerRingFill" cx="28" cy="28" r="25"></circle>
+          </svg>
+          <div class="timer-value" id="timerMini">—</div>
+        </div>
+        <div class="timer-label">
+          Expires in
+          <span class="timer-text" id="timerText">—</span>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- JsBarcode from CDN -->
+<!-- JsBarcode -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+
 <script>
-  const visitorId = new URLSearchParams(window.location.search).get('v');
-  if (!visitorId) showError('No visitor ID provided.');
+const visitorId = new URLSearchParams(window.location.search).get('v');
+if (!visitorId) showError('No visitor ID provided.');
 
-  const statusLabels = { 'pending': 'Pending', 'checked-in': 'Checked In', 'checked-out': 'Checked Out' };
-  const statusClasses = { 'pending': 'status-pending', 'checked-in': 'status-checked-in', 'checked-out': 'status-checked-out' };
+const statusLabels  = { 'pending': 'Pending', 'checked-in': 'Checked In', 'checked-out': 'Checked Out' };
+const statusClasses = { 'pending': 'status-pending', 'checked-in': 'status-checked-in', 'checked-out': 'status-checked-out' };
 
-  function formatTime(ms) {
-    const s = Math.floor(ms / 1000);
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sc = s % 60;
-    if (h > 0) return `${h}h ${m}m`;
-    if (m > 0) return `${m}m ${sc}s`;
-    return `${sc}s`;
+let totalDuration = 0;
+let expiryTime = 0;
+
+function formatTime(ms) {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sc = s % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${sc}s`;
+  return `${sc}s`;
+}
+
+function formatTimeMini(ms) {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+}
+
+function updateStatusBadge(status) {
+  const badge = document.getElementById('statusBadge');
+  const label = statusLabels[status] || status;
+  const hasDot = status === 'checked-in';
+  badge.innerHTML = (hasDot ? '<span class="status-dot"></span>' : '') + label;
+  badge.className = 'status-badge ' + (statusClasses[status] || 'status-pending');
+}
+
+async function load() {
+  let d;
+  try {
+    const res = await fetch('/api/visitor?v=' + visitorId);
+    if (res.status === 404) { showError('Visitor pass not found.'); return; }
+    if (res.status === 410) { showExpired(); return; }
+    d = await res.json();
+  } catch { showError('Network error.'); return; }
+
+  // Photo
+  const photoWrap = document.getElementById('photoWrap');
+  if (d.photoUrl) {
+    photoWrap.innerHTML = `<img src="${d.photoUrl}" alt="Visitor" onerror="this.parentElement.innerHTML='👤'">`;
   }
 
-  function updateStatus(status) {
-    const badge = document.getElementById('statusBadge');
-    badge.textContent = statusLabels[status] || status;
-    badge.className = 'status-badge ' + (statusClasses[status] || 'status-pending');
-  }
+  // Animate photo ring based on status
+  const ringFill = document.getElementById('photoRingFill');
+  const ringMap = { 'pending': 105, 'checked-in': 0, 'checked-out': 157 };
+  setTimeout(() => { ringFill.style.strokeDashoffset = ringMap[d.status] ?? 157; }, 300);
 
-  async function load() {
-    let d;
-    try {
-      const res = await fetch('/api/visitor?v=' + visitorId);
-      if (res.status === 404) { showError('Visitor pass not found.'); return; }
-      if (res.status === 410) { showExpired(); return; }
-      d = await res.json();
-    } catch(e) { showError('Network error.'); return; }
+  // Info
+  document.getElementById('visitorName').textContent = d.name || '—';
+  document.getElementById('visitorIdText').textContent = d.visitorId;
+  document.getElementById('infoPhone').textContent = d.phone || '—';
+  document.getElementById('infoPurpose').textContent = d.purpose || '—';
+  document.getElementById('infoVisiting').textContent = d.visiting || '—';
 
-    // Photo
-    const photoWrap = document.getElementById('photoWrap');
-    if (d.photoUrl) {
-      photoWrap.innerHTML = `<img src="${d.photoUrl}" alt="Visitor" onerror="this.parentElement.innerHTML='👤'">`;
-    }
+  // Status
+  updateStatusBadge(d.status);
 
-    // Info
-    document.getElementById('visitorName').textContent = d.name || '—';
-    document.getElementById('visitorIdText').textContent = d.visitorId;
-    document.getElementById('infoPhone').textContent = d.phone || '—';
-    document.getElementById('infoPurpose').textContent = d.purpose || '—';
-    document.getElementById('infoVisiting').textContent = d.visiting || '—';
-
-    // Status
-    updateStatus(d.status);
-
-    // Barcode
-    const canvas = document.getElementById('barcodeCanvas');
-    JsBarcode(canvas, d.visitorId, {
+  // Barcode
+  try {
+    JsBarcode(document.getElementById('barcodeCanvas'), d.visitorId, {
       format: 'CODE128',
       lineColor: '#0f172a',
       background: '#ffffff',
@@ -152,40 +758,93 @@
       displayValue: false,
       margin: 0,
     });
-    document.getElementById('barcodeText').textContent = d.visitorId;
+  } catch {}
+  document.getElementById('barcodeText').textContent = d.visitorId;
 
-    // Validity
-    const issued = new Date(d.issuedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
-    const expiry = new Date(d.expiry).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
-    document.getElementById('validity').innerHTML = `Issued: <span>${issued}</span> &nbsp;·&nbsp; Expires: <span>${expiry}</span>`;
+  // Validity
+  const fmtOpts = { dateStyle: 'medium', timeStyle: 'short' };
+  const issued = new Date(d.issuedAt).toLocaleString('en-IN', fmtOpts);
+  const expiry = new Date(d.expiry).toLocaleString('en-IN', fmtOpts);
+  document.getElementById('validityRow').innerHTML =
+    `<span>Issued: <span>${issued}</span></span><span>Expires: <span>${expiry}</span></span>`;
 
-    // Countdown timer
-    function tick() {
-      const remaining = d.expiry - Date.now();
-      if (remaining <= 0) { showExpired(); return; }
-      document.getElementById('timerText').textContent = formatTime(remaining);
-    }
-    tick();
-    setInterval(tick, 1000);
+  // Timer state
+  totalDuration = d.expiry - d.issuedAt;
+  expiryTime = d.expiry;
 
-    // Poll status every 10s
-    setInterval(async () => {
-      try {
-        const r = await fetch('/api/visitor?v=' + visitorId);
-        if (r.ok) { const u = await r.json(); updateStatus(u.status); }
-      } catch {}
-    }, 10000);
+  // Circumference for timer ring (r=25)
+  const circumference = 2 * Math.PI * 25; // ~157
+
+  function tick() {
+    const remaining = expiryTime - Date.now();
+    if (remaining <= 0) { showExpired(); return; }
+
+    const elapsed = Date.now() - d.issuedAt;
+    const progress = Math.max(0, Math.min(1, remaining / totalDuration));
+
+    // Update timer text
+    document.getElementById('timerText').textContent = formatTime(remaining);
+    document.getElementById('timerMini').textContent = formatTimeMini(remaining);
+
+    // Update ring
+    const ringEl = document.getElementById('timerRingFill');
+    ringEl.style.strokeDashoffset = circumference * (1 - progress);
+
+    // Color warnings
+    const pct = progress * 100;
+    ringEl.classList.remove('warning', 'danger');
+    if (pct < 10) ringEl.classList.add('danger');
+    else if (pct < 25) ringEl.classList.add('warning');
+
+    // Update progress bar
+    document.getElementById('progressBar').style.width = (progress * 100) + '%';
   }
 
-  function showError(msg) {
-    document.body.innerHTML = `<div class="expired-overlay"><h2>⚠️ Error</h2><p>${msg}</p></div>`;
-  }
-  function showExpired() {
-    document.body.innerHTML = `<div class="expired-overlay"><h2>⏰ Pass Expired</h2><p>This visitor pass is no longer valid.</p><p style="margin-top:8px;font-size:12px;">Contact security to issue a new pass.</p></div>`;
-  }
+  tick();
+  setInterval(tick, 1000);
 
-  load();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  // Poll status every 10s
+  setInterval(async () => {
+    try {
+      const r = await fetch('/api/visitor?v=' + visitorId);
+      if (r.ok) {
+        const u = await r.json();
+        updateStatusBadge(u.status);
+        // Update photo ring on status change
+        const ring = document.getElementById('photoRingFill');
+        const rm = { 'pending': 105, 'checked-in': 0, 'checked-out': 157 };
+        ring.style.strokeDashoffset = rm[u.status] ?? 157;
+      }
+    } catch {}
+  }, 10000);
+}
+
+function showError(msg) {
+  document.body.innerHTML = `
+    <div class="aurora" aria-hidden="true"><div class="aurora-orb"></div><div class="aurora-orb"></div><div class="aurora-orb"></div></div>
+    <div class="expired-overlay">
+      <div class="expired-icon">⚠️</div>
+      <h2>Error</h2>
+      <p>${msg}</p>
+    </div>`;
+}
+
+function showExpired() {
+  const card = document.getElementById('passCard');
+  if (card) card.style.opacity = '0.3';
+  const overlay = document.createElement('div');
+  overlay.className = 'expired-overlay';
+  overlay.innerHTML = `
+    <div class="expired-icon">⏰</div>
+    <h2>Pass Expired</h2>
+    <p>This visitor pass is no longer valid.</p>
+    <p class="expired-sub">Contact security to issue a new pass.</p>`;
+  document.body.appendChild(overlay);
+}
+
+load();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 </script>
+
 </body>
 </html>
