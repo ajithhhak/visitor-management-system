@@ -168,8 +168,8 @@
   </div>
 </div>
 
-<!-- ZXing barcode scanner -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/zxing-js/0.20.0/index.min.js" onerror="console.warn('ZXing not loaded')"></script>
+<!-- ZXing barcode scanner (correct CDN) -->
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 
 <script>
   const PASS_KEY = 'dash-auth';
@@ -327,32 +327,40 @@
     video.style.display = 'none';
     document.getElementById('cameraBtn').textContent = '📷 Start Camera Scanner';
     cameraActive = false;
+    zxingReader = null;
   }
+
+  // ZXing reader instance reused across frames
+  let zxingReader = null;
 
   async function scanLoop() {
     if (!cameraActive) return;
     const video  = document.getElementById('cameraPreview');
     const canvas = document.getElementById('cameraCanvas');
     const ctx    = canvas.getContext('2d');
+
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
       canvas.width  = video.videoWidth;
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0);
       try {
         if (window.ZXing) {
-          const reader = new ZXing.BrowserMultiFormatReader();
-          const result = await reader.decodeFromCanvas(canvas);
-          if (result && result.text) {
-            document.getElementById('scanInput').value = result.text;
+          if (!zxingReader) zxingReader = new ZXing.BrowserMultiFormatReader();
+          const imgData = canvas.toDataURL('image/png');
+          const result  = await zxingReader.decodeFromImageUrl(imgData);
+          if (result && result.getText()) {
+            document.getElementById('scanInput').value = result.getText();
             stopCamera();
             toast('📷 Barcode scanned!', '#86efac');
             await lookupVisitor();
             return;
           }
         }
-      } catch {}
+      } catch(e) {
+        // NotFoundException is normal when no barcode in frame, ignore it
+      }
     }
-    if (cameraActive) requestAnimationFrame(scanLoop);
+    if (cameraActive) setTimeout(scanLoop, 200); // scan every 200ms not every frame
   }
 
   // ── Visitor List ──────────────────────────────────────────────────────────
