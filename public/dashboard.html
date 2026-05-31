@@ -181,11 +181,19 @@
     if (!val) return;
     dashKey = val;
     document.getElementById('loginError').style.display = 'none';
-    // Test auth with a dummy lookup
-    fetch('/api/visitor?v=TEST', { headers: { 'x-dashboard-key': dashKey } })
-      .then(() => {
-        sessionStorage.setItem(PASS_KEY, dashKey);
-        showDashboard();
+    fetch('/api/auth', { headers: { 'x-dashboard-key': dashKey } })
+      .then(r => {
+        if (r.ok) {
+          sessionStorage.setItem(PASS_KEY, dashKey);
+          showDashboard();
+        } else {
+          dashKey = '';
+          document.getElementById('loginError').style.display = 'block';
+        }
+      })
+      .catch(() => {
+        dashKey = '';
+        document.getElementById('loginError').style.display = 'block';
       });
   }
   function logout() {
