@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<title>Security Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: #0f172a; font-family: 'Google Sans', Roboto, sans-serif; color: #e2e8f0; }
+  body { display: flex; flex-direction: column; min-height: 100dvh; }
+
+  /* ── Login ── */
+  #loginScreen { display: flex; align-items: center; justify-content: center; height: 100dvh; padding: 24px; }
+  .login-card { background: #1e293b; border-radius: 20px; padding: 32px 24px; width: 100%; max-width: 360px; border: 1px solid #334155; }
+  .login-card h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .login-card p { font-size: 13px; color: #64748b; margin-bottom: 24px; }
+  .input { width: 100%; background: #0f172a; border: 1.5px solid #334155; border-radius: 12px; color: #e2e8f0; font-size: 15px; padding: 13px 16px; outline: none; font-family: inherit; margin-bottom: 12px; }
+  .input:focus { border-color: #3b82f6; }
+  .btn-primary { width: 100%; background: linear-gradient(135deg, #2563eb, #3b82f6); border: none; border-radius: 12px; color: #fff; font-size: 15px; font-weight: 700; padding: 14px; cursor: pointer; font-family: inherit; }
+  .error-msg { font-size: 13px; color: #ef4444; text-align: center; margin-top: 8px; display: none; }
+
+  /* ── Dashboard ── */
+  #dashboard { display: none; flex-direction: column; height: 100dvh; }
+  .dash-header { background: #1e293b; border-bottom: 1px solid #334155; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .dash-title { font-size: 16px; font-weight: 700; }
+  .dash-sub { font-size: 12px; color: #64748b; }
+  .logout-btn { background: none; border: 1px solid #334155; border-radius: 8px; color: #94a3b8; font-size: 12px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+
+  .tabs { display: flex; background: #1e293b; border-bottom: 1px solid #334155; flex-shrink: 0; }
+  .tab { flex: 1; padding: 12px; text-align: center; font-size: 13px; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; }
+  .tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+
+  .tab-content { display: none; flex: 1; overflow-y: auto; padding: 16px; }
+  .tab-content.active { display: block; }
+
+  /* ── Scanner tab ── */
+  .scanner-section { background: #1e293b; border-radius: 16px; padding: 20px; margin-bottom: 16px; border: 1px solid #334155; }
+  .scanner-section h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; }
+  #scanInput { width: 100%; background: #0f172a; border: 1.5px solid #334155; border-radius: 12px; color: #e2e8f0; font-size: 15px; padding: 13px 16px; outline: none; font-family: monospace; }
+  #scanInput:focus { border-color: #3b82f6; }
+  .scan-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .btn-checkin  { flex: 1; background: #16a34a; border: none; border-radius: 10px; color: #fff; font-size: 14px; font-weight: 700; padding: 12px; cursor: pointer; font-family: inherit; }
+  .btn-checkout { flex: 1; background: #dc2626; border: none; border-radius: 10px; color: #fff; font-size: 14px; font-weight: 700; padding: 12px; cursor: pointer; font-family: inherit; }
+  .btn-lookup   { flex: 1; background: #2563eb; border: none; border-radius: 10px; color: #fff; font-size: 14px; font-weight: 700; padding: 12px; cursor: pointer; font-family: inherit; }
+
+  /* ── Visitor result card ── */
+  #resultCard { background: #1e293b; border-radius: 16px; padding: 20px; border: 1px solid #334155; display: none; }
+  .result-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+  .result-photo { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; background: #334155; display: flex; align-items: center; justify-content: center; font-size: 28px; overflow: hidden; flex-shrink: 0; border: 2px solid #3b82f6; }
+  .result-photo img { width: 100%; height: 100%; object-fit: cover; }
+  .result-name { font-size: 17px; font-weight: 700; }
+  .result-id { font-size: 11px; color: #64748b; font-family: monospace; }
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .result-item { background: #0f172a; border-radius: 8px; padding: 8px 10px; }
+  .result-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+  .result-value { font-size: 13px; color: #e2e8f0; font-weight: 600; margin-top: 2px; }
+  .status-badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; }
+  .status-pending    { background: #fbbf24; color: #1c1917; }
+  .status-checked-in   { background: #22c55e; color: #fff; }
+  .status-checked-out  { background: #6b7280; color: #fff; }
+  .scan-result-actions { display: flex; gap: 8px; }
+  .alert { padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; margin-bottom: 12px; display: none; }
+  .alert-success { background: #14532d; color: #86efac; border: 1px solid #166534; }
+  .alert-error   { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+
+  /* ── Camera scanner ── */
+  #cameraSection { background: #1e293b; border-radius: 16px; padding: 16px; border: 1px solid #334155; margin-bottom: 16px; }
+  #cameraSection h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; }
+  #cameraPreview { width: 100%; border-radius: 12px; background: #000; max-height: 240px; object-fit: cover; display: none; }
+  .btn-camera { width: 100%; background: #7c3aed; border: none; border-radius: 10px; color: #fff; font-size: 14px; font-weight: 700; padding: 12px; cursor: pointer; font-family: inherit; }
+
+  /* ── Visitor list tab ── */
+  .visitor-card { background: #1e293b; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; border: 1px solid #334155; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+  .visitor-card:hover { border-color: #3b82f6; }
+  .v-photo { width: 48px; height: 48px; border-radius: 50%; background: #334155; display: flex; align-items: center; justify-content: center; font-size: 22px; overflow: hidden; flex-shrink: 0; }
+  .v-photo img { width: 100%; height: 100%; object-fit: cover; }
+  .v-info { flex: 1; min-width: 0; }
+  .v-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .v-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .empty-state { text-align: center; padding: 40px 20px; color: #475569; font-size: 14px; }
+
+  /* Notification toast */
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 12px 20px; font-size: 13px; font-weight: 600; z-index: 999; display: none; box-shadow: 0 8px 32px rgba(0,0,0,0.5); white-space: nowrap; }
+  #toast.show { display: block; }
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- ── Login ── -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h1>🔐 Security Dashboard</h1>
+    <p>Visitor Management System</p>
+    <input class="input" type="password" id="passInput" placeholder="Enter dashboard password" autocomplete="current-password">
+    <button class="btn-primary" onclick="login()">Login</button>
+    <div class="error-msg" id="loginError">Incorrect password. Try again.</div>
+  </div>
+</div>
+
+<!-- ── Dashboard ── -->
+<div id="dashboard">
+  <div class="dash-header">
+    <div>
+      <div class="dash-title">🏢 Security Dashboard</div>
+      <div class="dash-sub" id="dashDate"></div>
+    </div>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('scanner')">📷 Scanner</div>
+    <div class="tab" onclick="switchTab('visitors')">👥 Visitors</div>
+  </div>
+
+  <!-- Scanner Tab -->
+  <div class="tab-content active" id="tab-scanner">
+
+    <!-- Camera Scanner -->
+    <div id="cameraSection">
+      <h3>Camera Scan</h3>
+      <video id="cameraPreview" autoplay playsinline muted></video>
+      <canvas id="cameraCanvas" style="display:none"></canvas>
+      <button class="btn-camera" id="cameraBtn" onclick="toggleCamera()">📷 Start Camera Scanner</button>
+    </div>
+
+    <!-- Manual Entry -->
+    <div class="scanner-section">
+      <h3>Manual Entry / Barcode Input</h3>
+      <input class="input" type="text" id="scanInput" placeholder="Scan barcode or type Visitor ID" autocomplete="off" spellcheck="false">
+      <div class="scan-actions">
+        <button class="btn-lookup" onclick="lookupVisitor()">🔍 Lookup</button>
+        <button class="btn-checkin" onclick="updateStatus('checkin')">✅ Check In</button>
+        <button class="btn-checkout" onclick="updateStatus('checkout')">🚪 Check Out</button>
+      </div>
+    </div>
+
+    <!-- Alert -->
+    <div class="alert" id="alertBox"></div>
+
+    <!-- Result card -->
+    <div id="resultCard">
+      <div class="result-header">
+        <div class="result-photo" id="resultPhoto">👤</div>
+        <div>
+          <div class="result-name" id="resultName">—</div>
+          <div class="result-id" id="resultId">—</div>
+          <div style="margin-top:6px"><span class="status-badge" id="resultStatus">—</span></div>
+        </div>
+      </div>
+      <div class="result-grid">
+        <div class="result-item"><div class="result-label">Phone</div><div class="result-value" id="resultPhone">—</div></div>
+        <div class="result-item"><div class="result-label">Purpose</div><div class="result-value" id="resultPurpose">—</div></div>
+        <div class="result-item" style="grid-column:1/-1"><div class="result-label">Visiting</div><div class="result-value" id="resultVisiting">—</div></div>
+        <div class="result-item"><div class="result-label">Check-in</div><div class="result-value" id="resultCheckin">—</div></div>
+        <div class="result-item"><div class="result-label">Check-out</div><div class="result-value" id="resultCheckout">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visitors Tab -->
+  <div class="tab-content" id="tab-visitors">
+    <div id="visitorList"><div class="empty-state">Loading visitors...</div></div>
+  </div>
+</div>
+
+<!-- ZXing barcode scanner -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/zxing-js/0.20.0/index.min.js" onerror="console.warn('ZXing not loaded')"></script>
+
+<script>
+  const PASS_KEY = 'dash-auth';
+  let dashKey    = '';
+  let cameraActive = false;
+  let codeReader   = null;
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  function login() {
+    const val = document.getElementById('passInput').value.trim();
+    if (!val) return;
+    dashKey = val;
+    document.getElementById('loginError').style.display = 'none';
+    // Test auth with a dummy lookup
+    fetch('/api/visitor?v=TEST', { headers: { 'x-dashboard-key': dashKey } })
+      .then(() => {
+        sessionStorage.setItem(PASS_KEY, dashKey);
+        showDashboard();
+      });
+  }
+  function logout() {
+    sessionStorage.removeItem(PASS_KEY);
+    dashKey = '';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('passInput').value = '';
+  }
+  function showDashboard() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'flex';
+    document.getElementById('dashDate').textContent = new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  }
+
+  // Restore session
+  const saved = sessionStorage.getItem(PASS_KEY);
+  if (saved) { dashKey = saved; showDashboard(); }
+
+  document.getElementById('passInput').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['scanner','visitors'][i] === name));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    if (name === 'visitors') loadVisitorList();
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  function toast(msg, color) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.style.color = color || '#e2e8f0';
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  // ── Scanner ───────────────────────────────────────────────────────────────
+  function getVisitorId() { return document.getElementById('scanInput').value.trim().toUpperCase(); }
+
+  async function lookupVisitor() {
+    const id = getVisitorId();
+    if (!id) return showAlert('Enter a Visitor ID first.', 'error');
+    const data = await fetchVisitor(id);
+    if (data) renderResult(data);
+  }
+
+  async function updateStatus(action) {
+    const id = getVisitorId();
+    if (!id) return showAlert('Enter a Visitor ID first.', 'error');
+    try {
+      const res = await fetch(`/api/visitor?v=${id}&action=${action}`, {
+        method: 'PATCH',
+        headers: { 'x-dashboard-key': dashKey },
+      });
+      const json = await res.json();
+      if (!res.ok) return showAlert(json.error || 'Error', 'error');
+      showAlert(`✅ ${action === 'checkin' ? 'Checked in' : 'Checked out'} successfully!`, 'success');
+      toast(action === 'checkin' ? '✅ Checked In' : '🚪 Checked Out', action === 'checkin' ? '#86efac' : '#fca5a5');
+      const data = await fetchVisitor(id);
+      if (data) renderResult(data);
+    } catch(e) { showAlert('Network error.', 'error'); }
+  }
+
+  async function fetchVisitor(id) {
+    try {
+      const res = await fetch(`/api/visitor?v=${id}`);
+      if (res.status === 404) { showAlert('Visitor not found.', 'error'); return null; }
+      if (res.status === 410) { showAlert('This pass has expired.', 'error'); return null; }
+      return await res.json();
+    } catch(e) { showAlert('Network error.', 'error'); return null; }
+  }
+
+  function renderResult(d) {
+    document.getElementById('resultCard').style.display = 'block';
+    const photoEl = document.getElementById('resultPhoto');
+    if (d.photoUrl) photoEl.innerHTML = `<img src="${d.photoUrl}" alt="" onerror="this.parentElement.innerHTML='👤'">`;
+    else photoEl.innerHTML = '👤';
+    document.getElementById('resultName').textContent    = d.name || '—';
+    document.getElementById('resultId').textContent      = d.visitorId;
+    document.getElementById('resultPhone').textContent   = d.phone || '—';
+    document.getElementById('resultPurpose').textContent = d.purpose || '—';
+    document.getElementById('resultVisiting').textContent = d.visiting || '—';
+    document.getElementById('resultCheckin').textContent  = d.checkinAt ? new Date(d.checkinAt).toLocaleTimeString('en-IN') : '—';
+    document.getElementById('resultCheckout').textContent = d.checkoutAt ? new Date(d.checkoutAt).toLocaleTimeString('en-IN') : '—';
+    const badge = document.getElementById('resultStatus');
+    const labels = { 'pending':'Pending', 'checked-in':'Checked In', 'checked-out':'Checked Out' };
+    const classes = { 'pending':'status-pending', 'checked-in':'status-checked-in', 'checked-out':'status-checked-out' };
+    badge.textContent  = labels[d.status] || d.status;
+    badge.className    = 'status-badge ' + (classes[d.status] || '');
+  }
+
+  function showAlert(msg, type) {
+    const el = document.getElementById('alertBox');
+    el.textContent = msg;
+    el.className = 'alert alert-' + type;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 4000);
+  }
+
+  // ── Camera Scanner ────────────────────────────────────────────────────────
+  async function toggleCamera() {
+    if (cameraActive) { stopCamera(); return; }
+    const video = document.getElementById('cameraPreview');
+    const btn   = document.getElementById('cameraBtn');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+      video.style.display = 'block';
+      btn.textContent = '⏹ Stop Camera';
+      cameraActive = true;
+      scanLoop();
+    } catch(e) {
+      showAlert('Camera access denied. Use manual entry.', 'error');
+    }
+  }
+
+  function stopCamera() {
+    const video = document.getElementById('cameraPreview');
+    if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+    video.style.display = 'none';
+    document.getElementById('cameraBtn').textContent = '📷 Start Camera Scanner';
+    cameraActive = false;
+  }
+
+  async function scanLoop() {
+    if (!cameraActive) return;
+    const video  = document.getElementById('cameraPreview');
+    const canvas = document.getElementById('cameraCanvas');
+    const ctx    = canvas.getContext('2d');
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      try {
+        if (window.ZXing) {
+          const reader = new ZXing.BrowserMultiFormatReader();
+          const result = await reader.decodeFromCanvas(canvas);
+          if (result && result.text) {
+            document.getElementById('scanInput').value = result.text;
+            stopCamera();
+            toast('📷 Barcode scanned!', '#86efac');
+            await lookupVisitor();
+            return;
+          }
+        }
+      } catch {}
+    }
+    if (cameraActive) requestAnimationFrame(scanLoop);
+  }
+
+  // ── Visitor List ──────────────────────────────────────────────────────────
+  // Note: Upstash free tier doesn't support SCAN, so we track visitor IDs in a list
+  async function loadVisitorList() {
+    const listEl = document.getElementById('visitorList');
+    listEl.innerHTML = '<div class="empty-state">Loading...</div>';
+    try {
+      const res  = await fetch('/api/visitors', { headers: { 'x-dashboard-key': dashKey } });
+      if (!res.ok) { listEl.innerHTML = '<div class="empty-state">Could not load visitors.</div>'; return; }
+      const list = await res.json();
+      if (!list.length) { listEl.innerHTML = '<div class="empty-state">No visitors today.</div>'; return; }
+      listEl.innerHTML = list.map(v => `
+        <div class="visitor-card" onclick="document.getElementById('scanInput').value='${v.visitorId}'; switchTab('scanner'); lookupVisitor();">
+          <div class="v-photo">${v.photoUrl ? `<img src="${v.photoUrl}" onerror="this.parentElement.innerHTML='👤'">` : '👤'}</div>
+          <div class="v-info">
+            <div class="v-name">${v.name}</div>
+            <div class="v-sub">${v.visiting} · ${v.visitorId}</div>
+          </div>
+          <span class="status-badge status-${v.status}" style="font-size:10px;padding:3px 8px;">${v.status}</span>
+        </div>`).join('');
+    } catch(e) { listEl.innerHTML = '<div class="empty-state">Error loading visitors.</div>'; }
+  }
+</script>
+</body>
+</html>

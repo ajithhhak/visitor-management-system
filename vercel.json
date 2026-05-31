@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "routes": [
+    { "src": "/", "dest": "/public/dashboard.html" },
+    { "src": "/id", "dest": "/public/id.html" },
+    { "src": "/dashboard", "dest": "/public/dashboard.html" },
+    { "src": "/api/(.*)", "dest": "/api/$1" }
+  ]
+}
