@@ -1654,6 +1654,9 @@ async function scanWithFrameCapture() {
 
 function stopCamera() {
   cameraActive = false;
+  if (zxingReader) {
+    try { zxingReader.reset(); } catch {}
+  }
   zxingReader = null;
   const video = document.getElementById('cameraPreview');
   if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
