@@ -94,7 +94,8 @@
   <div class="login-card">
     <h1>🔐 Security Dashboard</h1>
     <p>Visitor Management System</p>
-    <input class="input" type="password" id="passInput" placeholder="Enter dashboard password" autocomplete="current-password">
+    <input class="input" type="text" id="userInput" placeholder="Username" autocomplete="username">
+    <input class="input" type="password" id="passInput" placeholder="Password" autocomplete="current-password">
     <button class="btn-primary" onclick="login()">Login</button>
     <div class="error-msg" id="loginError">Incorrect password. Try again.</div>
   </div>
@@ -107,6 +108,7 @@
       <div class="dash-title">🏢 Security Dashboard</div>
       <div class="dash-sub" id="dashDate"></div>
     </div>
+    <span id="staffName" style="font-size:12px;color:#64748b;"></span>
     <button class="logout-btn" onclick="logout()">Logout</button>
   </div>
 
@@ -179,13 +181,17 @@
   function login() {
     const val = document.getElementById('passInput').value.trim();
     if (!val) return;
-    dashKey = val;
+    const user = document.getElementById('userInput').value.trim();
+    if (!user) return;
+    dashKey = user + ':' + val;
     document.getElementById('loginError').style.display = 'none';
     fetch('/api/auth', { headers: { 'x-dashboard-key': dashKey } })
-      .then(r => {
+      .then(async r => {
         if (r.ok) {
+          const data = await r.json();
           sessionStorage.setItem(PASS_KEY, dashKey);
-          showDashboard();
+          sessionStorage.setItem('staff-name', data.name || '');
+          showDashboard(data.name);
         } else {
           dashKey = '';
           document.getElementById('loginError').style.display = 'block';
@@ -198,21 +204,24 @@
   }
   function logout() {
     sessionStorage.removeItem(PASS_KEY);
+    sessionStorage.removeItem('staff-name');
     dashKey = '';
     document.getElementById('dashboard').style.display = 'none';
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('passInput').value = '';
   }
-  function showDashboard() {
+  function showDashboard(staffName) {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'flex';
     document.getElementById('dashDate').textContent = new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    if (staffName) document.getElementById('staffName').textContent = '👤 ' + staffName;
   }
 
   // Restore session
   const saved = sessionStorage.getItem(PASS_KEY);
-  if (saved) { dashKey = saved; showDashboard(); }
+  if (saved) { dashKey = saved; showDashboard(sessionStorage.getItem('staff-name') || ''); }
 
+  document.getElementById('userInput').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('passInput').focus(); });
   document.getElementById('passInput').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
