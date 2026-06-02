@@ -1,4 +1,5 @@
 // api/visitor.js — Get visitor record by visitorId
+import { isValidAuth } from './_auth.js';
 
 const KV_URL   = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
@@ -35,9 +36,8 @@ export default async function handler(req, res) {
 
   // PATCH — update status (checkin / checkout)
   if (req.method === 'PATCH' && action) {
-    const DASHBOARD_PASS = process.env.DASHBOARD_PASSWORD || 'security123';
     const auth = req.headers['x-dashboard-key'];
-    if (auth !== DASHBOARD_PASS) return res.status(401).json({ error: 'Unauthorized' });
+    if (!isValidAuth(auth)) return res.status(401).json({ error: 'Unauthorized' });
 
     if (action === 'checkin' && record.status === 'pending') {
       record.status    = 'checked-in';

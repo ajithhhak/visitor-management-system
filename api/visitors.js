@@ -1,8 +1,8 @@
 // api/visitors.js — List all active visitors (for dashboard)
+import { isValidAuth } from './_auth.js';
 
 const KV_URL    = process.env.KV_REST_API_URL;
 const KV_TOKEN  = process.env.KV_REST_API_TOKEN;
-const DASH_PASS = process.env.DASHBOARD_PASSWORD || 'security123';
 
 async function kvGet(key) {
   const res = await fetch(`${KV_URL}/get/${encodeURIComponent(key)}`, {
@@ -27,7 +27,7 @@ async function kvLrange(key) {
 
 export default async function handler(req, res) {
   const auth = req.headers['x-dashboard-key'];
-  if (auth !== DASH_PASS) return res.status(401).json({ error: 'Unauthorized' });
+  if (!isValidAuth(auth)) return res.status(401).json({ error: 'Unauthorized' });
 
   const today   = new Date().toISOString().slice(0, 10);
   const listKey = `visitors:${today}`;
